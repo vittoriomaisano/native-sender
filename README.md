@@ -9,5 +9,6 @@
 
 Запуск:
 1. Вся настройка описана в 'config.py'
-2. Устанавливаем библиотеки 'pip3 install -r requirements.txt'
-3. Запускаем 'main.py'
+2. Приватники в 'wallets/keys.txt. Адреса получателей в 'wallets/recipients.txt'
+3. Устанавливаем библиотеки 'pip3 install -r requirements.txt'
+4. Запускаем 'main.py'
