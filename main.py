@@ -86,13 +86,15 @@ def transfer(private_key, wallet_index, recipient, value=None):
             tx['maxFeePerGas'] = current_gas_price + w3.to_wei(8, "gwei")
             tx['maxPriorityFeePerGas'] = w3.to_wei(1.5, "gwei")
         elif network == "Optimism":
+            tx['gas'] = 21000
             w3.middleware_onion.inject(geth_poa_middleware, layer=0)
             last_block = (w3.eth.get_block('latest'))
             base_fee_per_gas = int(last_block['baseFeePerGas'] * 1.02)
-            max_priority_fee_per_gas = int(w3.eth.max_priority_fee)
-            max_fee_per_gas =  int(base_fee_per_gas + max_priority_fee_per_gas)
+            max_priority_fee_per_gas = (w3.eth.max_priority_fee)
+            max_fee_per_gas =  (base_fee_per_gas + max_priority_fee_per_gas)
             tx['maxFeePerGas'] = max_fee_per_gas
             tx['maxPriorityFeePerGas'] = max_priority_fee_per_gas
+
     
     if mode == "direct":
         native_amount = round(random.uniform(native_from, native_to), decimals)
