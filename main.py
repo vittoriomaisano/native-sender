@@ -1,3 +1,5 @@
+import os
+import csv
 import time
 import random
 from data import *
@@ -34,6 +36,35 @@ wallet_pair = dict(zip(private_keys, recipients))
 
 for private_key in private_keys:
     recipient = wallet_pair[private_key]
+
+
+def create_dir(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+def create_csv(file_path, header):
+    if not os.path.exists(file_path):
+        with open(file_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(header)
+
+def success_csv(wallet_index, account_address, native_amount, native, recipient):
+    create_dir('results')
+    create_csv('results/success.csv', ['wallet_index', 'sender', 'amount', 'native', 'recipient'])
+    with open('results/success.csv', mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if file.tell() == 0:
+            writer.writerow(['wallet_index', 'sender', 'amount', 'native', 'recipient'])
+        writer.writerow([f"{wallet_index}", account_address, native_amount, native, recipient])
+
+def failed_csv(wallet_index, private_key, account_address, native_amount, native, recipient, error_message):
+    create_dir('results')
+    create_csv('results/failed.csv', ['wallet_index', 'private_key', 'sender', 'amount', 'native', 'recipient', 'error'])
+    with open('results/failed.csv', mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if file.tell() == 0:
+            writer.writerow(['wallet_index', 'private_key', 'sender', 'amount', 'native', 'recipient', 'error'])        
+        writer.writerow([f"{wallet_index}", private_key, account_address, native_amount, native, recipient, error_message])
 
 
 def transfer(private_key, wallet_index, recipient, value=None):
@@ -113,12 +144,15 @@ def transfer(private_key, wallet_index, recipient, value=None):
 
     if value is None:
         value = native_amount
-    tx['value'] = w3.to_wei((value),  "ether")
     
-    if mode == "remain" or mode == "full_balance":
+    if mode in ["remain", "full_balance"]:
         if value < min_amount_to_send:
-            print(f">>>[{wallet_index}] {account.address} Количество эфира {value} для отправки превышает ({min_amount_to_send} {native}). Транзакция не будет отправлена.")
-            return   
+            print(f">>>[{wallet_index}] {account.address} Количество {native} {value} для отправки меньше чем ({min_amount_to_send} {native}). Транзакция не будет отправлена.")
+            error_message = f"Skipped: value: {value} < {min_amount_to_send}"
+            failed_csv(wallet_index, private_key, account.address, native_amount, native, recipient, error_message)
+            return
+
+    tx['value'] = w3.to_wei((value),  "ether")   
 
     if network == "Arbitrum":
         total_cost = float(value) + float(w3.from_wei((gas_limit * w3.to_wei(0.1, "gwei")), "ether"))
@@ -139,18 +173,23 @@ def transfer(private_key, wallet_index, recipient, value=None):
         
             if receipt["status"] == 1:
                 cprint(f">>>[{wallet_index}] {account.address} {native_amount} {native} отправлен успешно на {recipient}", "green")
+                success_csv(wallet_index, account.address, native_amount, native, recipient)
                 return receipt
             else:
+                error_message = f"Failed: {receipt['status']})"
                 cprint(f">>>[{wallet_index}] {account.address} Transaction Failed (статус: {receipt['status']})", "red")
+                failed_csv(wallet_index, private_key, account.address, native_amount, native, recipient, error_message)
                 return None
         except Exception as e:
+            error_message = f"Failed: {str(e)})"
             cprint(f">>>[{wallet_index}] {account.address} Произошла ошибка при отправке {native_amount} {native}: {str(e)}", "red")
+            failed_csv(wallet_index, private_key, account.address, native_amount, native, recipient, error_message)
             return None
 
 def main():
     cprint(belomordao, "cyan")
     cprint('Native-Sender запущен...', "magenta")
-    print(f'\nСеть: {network}')
+    print(f'\nNetwork: {network}')
     print(f'Mode: {mode}')
     print(f'Shuffle: {shuffle}\n')
     time.sleep(5)
@@ -181,3 +220,4 @@ if __name__ == "__main__":
     if len(recipients) != len(private_keys):
         cprint("Количество адресов не соответствует количеству приватных ключей. Завершаю работу...", "red")
     main()
+
